@@ -151,24 +151,42 @@
       /* ========= LOAD ROOT + SHARED ========= */
       async function loadAllRootFolders() {
         const res = await gapi.client.drive.files.list({
-          q: "mimeType='application/vnd.google-apps.folder' and trashed=false",
-          fields: "files(id,name,owners)",
+          q: `
+      mimeType='application/vnd.google-apps.folder'
+      and trashed=false
+      and (
+        'root' in parents
+        or sharedWithMe
+      )
+    `,
+          fields: "files(id,name,shared,driveId)",
           pageSize: 1000,
           supportsAllDrives: true,
           includeItemsFromAllDrives: true,
         });
 
-        const select = folderSelect;
-        select.innerHTML = "";
-
+        folderSelect.innerHTML = "";
         res.result.files.forEach((f) => {
           const opt = document.createElement("option");
           opt.value = f.id;
-          opt.textContent = f.name;
-          select.appendChild(opt);
+          opt.textContent = f.shared ? `🤝 ${f.name}` : f.name;
+          folderSelect.appendChild(opt);
         });
 
-        select.disabled = false;
+        folderSelect.disabled = false;
+      }
+      async function crawlFolderRecursive(folderId, folderName) {
+        const docs = await getDocsInFolder(folderId);
+
+        for (const doc of docs) {
+          const data = await readDoc(doc.id);
+          appendRow(folderName, doc.name, data.h1, data.italic);
+        }
+
+        const subFolders = await getSubFolders(folderId);
+        for (const sub of subFolders) {
+          await crawlFolderRecursive(sub.id, sub.name);
+        }
       }
 
       /* ========= MAIN ========= */
@@ -176,20 +194,14 @@
         const parentId = folderSelect.value;
         if (!parentId) return alert("Chưa chọn folder cha");
 
+        const rootName = folderSelect.options[folderSelect.selectedIndex].text;
+
         status.textContent = "⏳ Đang crawl dữ liệu...";
         resultTable.style.display = "none";
         resultTable.querySelector("tbody").innerHTML = "";
 
-        const subFolders = await getSubFolders(parentId);
-
-        for (const folder of subFolders) {
-          const docs = await getDocsInFolder(folder.id);
-
-          for (const doc of docs) {
-            const data = await readDoc(doc.id);
-            appendRow(folder.name, doc.name, data.h1, data.italic);
-          }
-        }
+        // 🚀 Crawl đệ quy từ folder cha
+        await crawlFolderRecursive(parentId, rootName);
 
         status.textContent = "✅ Hoàn tất";
         resultTable.style.display = "table";
@@ -197,13 +209,23 @@
 
       /* ========= HELPERS ========= */
       async function getSubFolders(parentId) {
-        const res = await gapi.client.drive.files.list({
-          q: `'${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-          fields: "files(id,name)",
-          supportsAllDrives: true,
-          includeItemsFromAllDrives: true,
-        });
-        return res.result.files || [];
+        let folders = [];
+        let pageToken = null;
+
+        do {
+          const res = await gapi.client.drive.files.list({
+            q: `'${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+            fields: "nextPageToken, files(id,name)",
+            pageToken,
+            supportsAllDrives: true,
+            includeItemsFromAllDrives: true,
+          });
+
+          folders.push(...(res.result.files || []));
+          pageToken = res.result.nextPageToken;
+        } while (pageToken);
+
+        return folders;
       }
 
       async function getDocsInFolder(folderId) {
@@ -232,7 +254,12 @@
           const style = p.paragraphStyle?.namedStyleType;
 
           p.elements.forEach((el) => {
-            const text = el.textRun?.content?.trim();
+            const raw = el.textRun?.content;
+            if (!raw) return;
+
+            const text = raw.replace(/\n/g, "").trim();
+            if (!text) return;
+
             const ts = el.textRun?.textStyle;
             if (!text) return;
 
