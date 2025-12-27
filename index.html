@@ -160,12 +160,9 @@
       >
         <b>📝 Lưu ý thao tác:</b>
         <ul style="margin: 6px 0 0 18px; padding: 0">
+          <li>🖱 <b>Click 1 lần</b> để copy nội dung</li>
           <li>
-            🖱 <b>Click 1 lần</b> vào <b>H1</b> hoặc <b>Italic</b> để copy nội
-            dung
-          </li>
-          <li>
-            🖱 <b>Double click</b> vào <b>H1</b> hoặc <b>Italic</b> để copy
+            🖱 <b>Double click</b> để copy
             <b>slug SEO dạng abc-xyz</b>
           </li>
         </ul>
@@ -555,6 +552,13 @@
       // double click → copy slug Folder
       document.addEventListener("dblclick", function (e) {
         const cell = e.target.closest(".folder-cell");
+        if (!cell) return;
+
+        copyText(cell.dataset.slug);
+      });
+
+      document.addEventListener("dblclick", function (e) {
+        const cell = e.target.closest(".copy-box");
         if (!cell) return;
 
         copyText(cell.dataset.slug);
