@@ -94,6 +94,7 @@
         color: #4facfe;
         opacity: 0;
         transition: opacity 0.15s;
+        pointer-events: none;
       }
 
       .copy-box:hover::after {
@@ -468,8 +469,8 @@
     <td style="white-space:nowrap">${folder}</td>
 
     <td
-      ondblclick="copyText(slugify(${JSON.stringify(h1[0] || "")}))"
-      style="cursor:pointer"
+      class="doc-name"
+      data-slug="${slugify(h1[0] || "")}"
       title="Double click để copy slug SEO"
     >
       ${doc}
@@ -479,9 +480,10 @@
       ${h1
         .map(
           (x) =>
-            `<div class="copy-box" onclick="copyText(${JSON.stringify(
-              x
-            )})">${x}</div>`
+            `<div class="copy-box" data-copy="${x.replace(
+              /"/g,
+              "&quot;"
+            )}">${x}</div>`
         )
         .join("")}
     </td>
@@ -490,9 +492,10 @@
       ${italic
         .map(
           (x) =>
-            `<div class="copy-box" onclick="copyText(${JSON.stringify(
-              x
-            )})">${x}</div>`
+            `<div class="copy-box" data-copy="${x.replace(
+              /"/g,
+              "&quot;"
+            )}">${x}</div>`
         )
         .join("")}
     </td>
@@ -500,6 +503,28 @@
 
         resultTable.querySelector("tbody").appendChild(tr);
       }
+
+      // click 1 lần → copy text
+      document.addEventListener("click", function (e) {
+        const box = e.target.closest(".copy-box");
+        if (!box) return;
+
+        const text = box.dataset.copy;
+        if (text) {
+          copyText(text);
+        }
+      });
+
+      // double click → copy slug
+      document.addEventListener("dblclick", function (e) {
+        const docCell = e.target.closest(".doc-name");
+        if (!docCell) return;
+
+        const slug = docCell.dataset.slug;
+        if (slug) {
+          copyText(slug);
+        }
+      });
     </script>
   </body>
 </html>
