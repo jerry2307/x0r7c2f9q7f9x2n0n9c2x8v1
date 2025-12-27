@@ -266,6 +266,14 @@
           .replace(/^-|-$/g, ""); // trim -
       }
 
+      function cleanDocTitle(raw) {
+        return raw
+          .replace(/^🤝\s*/g, "") // bỏ icon 🤝
+          .replace(/.*?\s\/\s*/g, "") // bỏ folder cha "XOILAC /"
+          .replace(/^\d+[\.\)\-]\s*/g, "") // bỏ số thứ tự: 69. | 1) | 1-
+          .trim();
+      }
+
       function initProgress() {
         progressBar.style.width = "0%";
         progressBar.textContent = "0%";
@@ -470,6 +478,9 @@
       }
 
       function appendRow(folder, doc, h1, italic) {
+        const cleanTitle = cleanDocTitle(doc);
+        const slug = slugify(cleanTitle);
+
         const tr = document.createElement("tr");
 
         tr.innerHTML = `
@@ -477,8 +488,10 @@
 
     <td
       class="doc-name"
-      data-slug="${slugify(h1[0] || "")}"
-      title="Double click để copy slug SEO"
+      data-copy="${cleanTitle}"
+      data-slug="${slug}"
+      title="Click: copy tiêu đề | Double click: copy slug SEO"
+      style="cursor:pointer"
     >
       ${doc}
     </td>
@@ -517,6 +530,16 @@
         if (!box) return;
 
         const text = box.dataset.copy;
+        if (text) {
+          copyText(text);
+        }
+      });
+      // click 1 lần → copy TÊN BÀI SẠCH
+      document.addEventListener("click", function (e) {
+        const cell = e.target.closest(".doc-name");
+        if (!cell) return;
+
+        const text = cell.dataset.copy;
         if (text) {
           copyText(text);
         }
