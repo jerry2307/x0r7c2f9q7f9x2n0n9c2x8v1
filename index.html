@@ -69,6 +69,36 @@
         padding: 2px 4px;
         border-radius: 4px;
       }
+      .copy-box {
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 8px 10px;
+        margin-bottom: 6px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        position: relative;
+      }
+
+      .copy-box:hover {
+        background: #eef6ff;
+        border-color: #4facfe;
+      }
+
+      .copy-box::after {
+        content: "Click để copy";
+        position: absolute;
+        top: -18px;
+        right: 6px;
+        font-size: 11px;
+        color: #4facfe;
+        opacity: 0;
+        transition: opacity 0.15s;
+      }
+
+      .copy-box:hover::after {
+        opacity: 1;
+      }
     </style>
   </head>
 
@@ -178,6 +208,12 @@
 
         return count;
       }
+      function copyText(text) {
+        navigator.clipboard.writeText(text).then(() => {
+          status.textContent = "✅ Đã copy nội dung";
+        });
+      }
+
       function initProgress() {
         progressBar.style.width = "0%";
         progressBar.textContent = "0%";
@@ -364,12 +400,37 @@
 
       function appendRow(folder, doc, h1, italic) {
         const tr = document.createElement("tr");
+
+        const h1Text = h1.join("\n");
+        const italicText = italic.join("\n");
+
         tr.innerHTML = `
-    <td>${folder}</td>
+    <td style="white-space:nowrap">${folder}</td>
     <td>${doc}</td>
-    <td>${h1.map((x) => `<code>${x}</code>`).join("<br>")}</td>
-    <td>${italic.map((x) => `<code>${x}</code>`).join("<br>")}</td>
+
+    <td>
+      ${h1
+        .map(
+          (x) =>
+            `<div class="copy-box" onclick="copyText(${JSON.stringify(
+              x
+            )})">${x}</div>`
+        )
+        .join("")}
+    </td>
+
+    <td>
+      ${italic
+        .map(
+          (x) =>
+            `<div class="copy-box" onclick="copyText(${JSON.stringify(
+              x
+            )})">${x}</div>`
+        )
+        .join("")}
+    </td>
   `;
+
         resultTable.querySelector("tbody").appendChild(tr);
       }
     </script>
