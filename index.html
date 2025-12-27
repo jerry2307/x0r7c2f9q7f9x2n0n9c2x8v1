@@ -86,7 +86,8 @@
       }
 
       .copy-box::after {
-        content: "Click để copy";
+        content: "Click: copy | Double click: slug";
+
         position: absolute;
         top: -18px;
         right: 6px;
@@ -484,10 +485,19 @@
         const tr = document.createElement("tr");
 
         tr.innerHTML = `
-    <td style="white-space:nowrap">${folder}</td>
+    <td
+  class="copy-box folder-cell"
+  data-copy="${folder.replace(/"/g, "&quot;")}"
+  data-slug="${slugify(folder)}"
+  title="Click: copy folder | Double click: copy slug folder"
+  style="cursor:pointer; white-space:nowrap"
+>
+  ${folder}
+</td>
+
 
     <td
-      class="doc-name"
+      class="copy-box doc-name"
       data-copy="${cleanTitle}"
       data-slug="${slug}"
       title="Click: copy tiêu đề | Double click: copy slug SEO"
@@ -534,6 +544,22 @@
           copyText(text);
         }
       });
+      // click 1 lần → copy Folder
+      document.addEventListener("click", function (e) {
+        const cell = e.target.closest(".folder-cell");
+        if (!cell) return;
+
+        copyText(cell.dataset.copy);
+      });
+
+      // double click → copy slug Folder
+      document.addEventListener("dblclick", function (e) {
+        const cell = e.target.closest(".folder-cell");
+        if (!cell) return;
+
+        copyText(cell.dataset.slug);
+      });
+
       // click 1 lần → copy TÊN BÀI SẠCH
       document.addEventListener("click", function (e) {
         const cell = e.target.closest(".doc-name");
