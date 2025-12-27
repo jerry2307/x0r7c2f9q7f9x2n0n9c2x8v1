@@ -94,7 +94,6 @@
         color: #4facfe;
         opacity: 0;
         transition: opacity 0.15s;
-        pointer-events: none;
       }
 
       .copy-box:hover::after {
@@ -180,7 +179,6 @@
       let accessToken = null;
       let totalDocs = 0;
       let crawledCount = 0;
-      const CRAWL_CACHE_KEY = "docsCrawlCache_v1";
 
       /* ========= AUTH ========= */
       function login() {
@@ -197,15 +195,6 @@
         });
         tc.requestAccessToken();
       }
-
-      function loadCrawlCache() {
-        return JSON.parse(localStorage.getItem(CRAWL_CACHE_KEY) || "{}");
-      }
-
-      function saveCrawlCache(cache) {
-        localStorage.setItem(CRAWL_CACHE_KEY, JSON.stringify(cache));
-      }
-
       async function countAllDocs(folderId) {
         let count = 0;
 
@@ -314,25 +303,19 @@
       async function crawlFolderRecursive(folderId, folderPath) {
         // 1️⃣ Lấy docs trong folder hiện tại
         const docs = await getDocsInFolder(folderId);
-        const cache = loadCrawlCache();
 
         for (const doc of docs) {
-          const lastCrawled = cache[doc.id];
-          const modified = new Date(doc.modifiedTime).getTime();
+          try {
+            const data = await readDoc(doc.id);
 
-          // ❌ skip nếu doc không đổi
-          if (lastCrawled && modified <= lastCrawled) {
-            continue;
+            // ✅ append NGAY khi xong 1 doc
+            appendRow(folderPath, doc.name, data.h1, data.italic);
+          } catch (e) {
+            // lỗi doc thì vẫn tăng progress
+            appendRow(folderPath, doc.name, ["❌ Lỗi đọc doc"], []);
           }
 
-          // ✅ crawl doc mới / doc update
-          const data = await readDoc(doc.id);
-          appendRow(folderPath, doc.name, data.h1, data.italic);
-
-          // lưu lại thời điểm crawl
-          cache[doc.id] = Date.now();
-          saveCrawlCache(cache);
-
+          // 2️⃣ cập nhật progress
           crawledCount++;
           updateProgress();
 
@@ -352,23 +335,22 @@
         const parentId = folderSelect.value;
         if (!parentId) return alert("Chưa chọn folder cha");
 
-        const tbody = resultTable.querySelector("tbody");
-
-        // 🔥 chỉ reset nếu chưa có dữ liệu
-        if (!tbody.children.length) {
-          crawledCount = 0;
-        }
-
+        // 🔥 RESET UI STATE
+        crawledCount = 0;
         totalDocs = await countAllDocs(parentId);
 
         progressBar.style.width = "0%";
         progressBar.textContent = "0%";
-        docCounter.textContent = crawledCount + " / " + totalDocs + " docs";
+        docCounter.textContent = "0 / " + totalDocs + " docs";
 
         status.textContent = "⏳ Đang crawl dữ liệu...";
-        resultTable.style.display = "table";
+        resultTable.style.display = "none";
+        resultTable.querySelector("tbody").innerHTML = "";
 
         const rootName = folderSelect.options[folderSelect.selectedIndex].text;
+
+        // (nếu bạn dùng đếm totalDocs)
+        totalDocs = await countAllDocs(parentId);
 
         await crawlFolderRecursive(parentId, rootName);
 
@@ -377,6 +359,7 @@
         docCounter.textContent = crawledCount + " / " + totalDocs + " docs";
 
         status.textContent = "✅ Hoàn tất";
+        resultTable.style.display = "table";
       }
 
       /* ========= HELPERS ========= */
@@ -403,7 +386,7 @@
       async function getDocsInFolder(folderId) {
         const res = await gapi.client.drive.files.list({
           q: `'${folderId}' in parents and mimeType='application/vnd.google-apps.document' and trashed=false`,
-          fields: "files(id,name,modifiedTime)",
+          fields: "files(id,name)",
           supportsAllDrives: true,
           includeItemsFromAllDrives: true,
         });
@@ -469,8 +452,8 @@
     <td style="white-space:nowrap">${folder}</td>
 
     <td
-      class="doc-name"
-      data-slug="${slugify(h1[0] || "")}"
+      ondblclick="copyText(slugify(${JSON.stringify(h1[0] || "")}))"
+      style="cursor:pointer"
       title="Double click để copy slug SEO"
     >
       ${doc}
@@ -480,10 +463,9 @@
       ${h1
         .map(
           (x) =>
-            `<div class="copy-box" data-copy="${x.replace(
-              /"/g,
-              "&quot;"
-            )}">${x}</div>`
+            `<div class="copy-box" onclick="copyText(${JSON.stringify(
+              x
+            )})">${x}</div>`
         )
         .join("")}
     </td>
@@ -492,10 +474,9 @@
       ${italic
         .map(
           (x) =>
-            `<div class="copy-box" data-copy="${x.replace(
-              /"/g,
-              "&quot;"
-            )}">${x}</div>`
+            `<div class="copy-box" onclick="copyText(${JSON.stringify(
+              x
+            )})">${x}</div>`
         )
         .join("")}
     </td>
@@ -503,28 +484,6 @@
 
         resultTable.querySelector("tbody").appendChild(tr);
       }
-
-      // click 1 lần → copy text
-      document.addEventListener("click", function (e) {
-        const box = e.target.closest(".copy-box");
-        if (!box) return;
-
-        const text = box.dataset.copy;
-        if (text) {
-          copyText(text);
-        }
-      });
-
-      // double click → copy slug
-      document.addEventListener("dblclick", function (e) {
-        const docCell = e.target.closest(".doc-name");
-        if (!docCell) return;
-
-        const slug = docCell.dataset.slug;
-        if (slug) {
-          copyText(slug);
-        }
-      });
     </script>
   </body>
 </html>
