@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Google Docs – Crawl H1 & Italic</title>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background: #f5f6fa;
+        padding: 30px;
+      }
+      .container {
+        max-width: 1100px;
+        margin: auto;
+        background: #fff;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+      }
+      h2 {
+        margin-top: 0;
+      }
+      button {
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        background: #fff;
+        cursor: pointer;
+      }
+      button.primary {
+        background: #4facfe;
+        color: #fff;
+        border: none;
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+      .muted {
+        font-size: 12px;
+        color: #666;
+      }
+      select {
+        padding: 8px;
+        border-radius: 6px;
+        border: 1px solid #ddd;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 14px;
+      }
+      th,
+      td {
+        border: 1px solid #e5e5e5;
+        padding: 8px;
+        font-size: 13px;
+        vertical-align: top;
+      }
+      th {
+        background: #f0f4ff;
+        text-align: left;
+      }
+      code {
+        background: #f6f6f6;
+        padding: 2px 4px;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <h2>📄 Crawl H1 & Italic từ Google Docs</h2>
+
+      <div class="row">
+        <button class="primary" onclick="login()">🔐 Đăng nhập Google</button>
+        <span id="who" class="muted"></span>
+      </div>
+
+      <div class="row">
+        <select id="folderSelect" disabled></select>
+        <button onclick="startCrawl()">🚀 Lấy H1 & Italic</button>
+      </div>
+
+      <div id="status" class="muted">Chưa có thao tác</div>
+
+      <table id="resultTable" style="display: none">
+        <thead>
+          <tr>
+            <th>Folder con</th>
+            <th>Tên Google Docs</th>
+            <th>H1</th>
+            <th>Italic</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+
+    <script>
+      /* ====== CONFIG ====== */
+      const CLIENT_ID =
+        "860632481172-1nnq4dparmjdqrrehh407uv33ppvu2b7.apps.googleusercontent.com";
+      const API_KEY = "AIzaSyC6aOoJLRvkAmOn8MVtsu6yPO-mzK3AR3U";
+      const SCOPES =
+        "https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/documents.readonly";
+
+      const DISCOVERY_DOCS = [
+        "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest",
+        "https://www.googleapis.com/discovery/v1/apis/docs/v1/rest",
+      ];
+
+      let accessToken = null;
+
+      /* ====== AUTH ====== */
+      function login() {
+        const tc = google.accounts.oauth2.initTokenClient({
+          client_id: CLIENT_ID,
+          scope: SCOPES,
+          callback: async (t) => {
+            accessToken = t.access_token;
+            await initGapi();
+            gapi.client.setToken({ access_token: accessToken });
+            who.textContent = "✅ Đã kết nối Google";
+            await loadRootFolders();
+          },
+        });
+        tc.requestAccessToken();
+      }
+
+      async function initGapi() {
+        return new Promise((resolve) => {
+          gapi.load("client", async () => {
+            await gapi.client.init({
+              apiKey: API_KEY,
+              discoveryDocs: DISCOVERY_DOCS,
+            });
+            resolve();
+          });
+        });
+      }
+
+      /* ====== LOAD ROOT FOLDERS ====== */
+      async function loadRootFolders() {
+        const res = await gapi.client.drive.files.list({
+          q: "mimeType='application/vnd.google-apps.folder' and 'root' in parents and trashed=false",
+          fields: "files(id,name)",
+        });
+
+        const select = folderSelect;
+        select.innerHTML = "";
+        res.result.files.forEach((f) => {
+          const opt = document.createElement("option");
+          opt.value = f.id;
+          opt.textContent = f.name;
+          select.appendChild(opt);
+        });
+
+        select.disabled = false;
+      }
+
+      /* ====== CORE LOGIC ====== */
+      async function startCrawl() {
+        const parentId = folderSelect.value;
+        if (!parentId) return alert("Chưa chọn folder cha");
+
+        status.textContent = "⏳ Đang xử lý...";
+        resultTable.style.display = "none";
+        resultTable.admit = false;
+        resultTable.querySelector("tbody").innerHTML = "";
+
+        const subFolders = await getSubFolders(parentId);
+
+        for (const folder of subFolders) {
+          const docs = await getDocsInFolder(folder.id);
+
+          for (const doc of docs) {
+            const data = await readDoc(doc.id);
+            appendRow(folder.name, doc.name, data.h1, data.italic);
+          }
+        }
+
+        status.textContent = "✅ Hoàn tất";
+        resultTable.style.display = "table";
+      }
+
+      /* ====== HELPERS ====== */
+      async function getSubFolders(parentId) {
+        const res = await gapi.client.drive.files.list({
+          q: `'${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+          fields: "files(id,name)",
+        });
+        return res.result.files || [];
+      }
+
+      async function getDocsInFolder(folderId) {
+        const res = await gapi.client.drive.files.list({
+          q: `'${folderId}' in parents and mimeType='application/vnd.google-apps.document' and trashed=false`,
+          fields: "files(id,name)",
+        });
+        return res.result.files || [];
+      }
+
+      async function readDoc(docId) {
+        const res = await gapi.client.docs.documents.get({
+          documentId: docId,
+        });
+
+        const body = res.result.body.content;
+        const h1 = [];
+        const italic = [];
+
+        body.forEach((block) => {
+          const p = block.paragraph;
+          if (!p) return;
+
+          const style = p.paragraphStyle?.namedStyleType;
+
+          p.elements.forEach((el) => {
+            const text = el.textRun?.content?.trim();
+            const ts = el.textRun?.textStyle;
+            if (!text) return;
+
+            if (style === "HEADING_1") h1.push(text);
+            if (ts?.italic) italic.push(text);
+          });
+        });
+
+        return { h1, italic };
+      }
+
+      function appendRow(folder, doc, h1, italic) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+    <td>${folder}</td>
+    <td>${doc}</td>
+    <td>${h1.map((x) => `<code>${x}</code>`).join("<br>")}</td>
+    <td>${italic.map((x) => `<code>${x}</code>`).join("<br>")}</td>
+  `;
+        resultTable.querySelector("tbody").appendChild(tr);
+      }
+    </script>
+  </body>
+</html>
