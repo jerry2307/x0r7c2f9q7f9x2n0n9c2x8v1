@@ -503,29 +503,28 @@
       ${doc}
     </td>
 
-    <td>
-      ${h1
-        .map(
-          (x) =>
-            `<div class="copy-box" data-copy="${x.replace(
-              /"/g,
-              "&quot;"
-            )}">${x}</div>`
-        )
-        .join("")}
-    </td>
+<td>
+  ${h1
+    .map((x) => {
+      const safe = x.replace(/"/g, "&quot;");
+      return `<div class="copy-box" data-copy="${safe}" data-slug="${slugify(
+        x
+      )}">${safe}</div>`;
+    })
+    .join("")}
+</td>
 
-    <td>
-      ${italic
-        .map(
-          (x) =>
-            `<div class="copy-box" data-copy="${x.replace(
-              /"/g,
-              "&quot;"
-            )}">${x}</div>`
-        )
-        .join("")}
-    </td>
+<td>
+  ${italic
+    .map((x) => {
+      const safe = x.replace(/"/g, "&quot;");
+      return `<div class="copy-box" data-copy="${safe}" data-slug="${slugify(
+        x
+      )}">${safe}</div>`;
+    })
+    .join("")}
+</td>
+
   `;
 
         resultTable.querySelector("tbody").appendChild(tr);
