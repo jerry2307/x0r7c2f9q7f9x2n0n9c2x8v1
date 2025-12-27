@@ -179,6 +179,7 @@
       let accessToken = null;
       let totalDocs = 0;
       let crawledCount = 0;
+      const CRAWL_CACHE_KEY = "docsCrawlCache_v1";
 
       /* ========= AUTH ========= */
       function login() {
@@ -195,6 +196,15 @@
         });
         tc.requestAccessToken();
       }
+
+      function loadCrawlCache() {
+        return JSON.parse(localStorage.getItem(CRAWL_CACHE_KEY) || "{}");
+      }
+
+      function saveCrawlCache(cache) {
+        localStorage.setItem(CRAWL_CACHE_KEY, JSON.stringify(cache));
+      }
+
       async function countAllDocs(folderId) {
         let count = 0;
 
@@ -303,19 +313,25 @@
       async function crawlFolderRecursive(folderId, folderPath) {
         // 1️⃣ Lấy docs trong folder hiện tại
         const docs = await getDocsInFolder(folderId);
+        const cache = loadCrawlCache();
 
         for (const doc of docs) {
-          try {
-            const data = await readDoc(doc.id);
+          const lastCrawled = cache[doc.id];
+          const modified = new Date(doc.modifiedTime).getTime();
 
-            // ✅ append NGAY khi xong 1 doc
-            appendRow(folderPath, doc.name, data.h1, data.italic);
-          } catch (e) {
-            // lỗi doc thì vẫn tăng progress
-            appendRow(folderPath, doc.name, ["❌ Lỗi đọc doc"], []);
+          // ❌ skip nếu doc không đổi
+          if (lastCrawled && modified <= lastCrawled) {
+            continue;
           }
 
-          // 2️⃣ cập nhật progress
+          // ✅ crawl doc mới / doc update
+          const data = await readDoc(doc.id);
+          appendRow(folderPath, doc.name, data.h1, data.italic);
+
+          // lưu lại thời điểm crawl
+          cache[doc.id] = Date.now();
+          saveCrawlCache(cache);
+
           crawledCount++;
           updateProgress();
 
@@ -386,7 +402,7 @@
       async function getDocsInFolder(folderId) {
         const res = await gapi.client.drive.files.list({
           q: `'${folderId}' in parents and mimeType='application/vnd.google-apps.document' and trashed=false`,
-          fields: "files(id,name)",
+          fields: "files(id,name,modifiedTime)",
           supportsAllDrives: true,
           includeItemsFromAllDrives: true,
         });
