@@ -182,7 +182,12 @@
 
       function updateProgress() {
         if (!totalDocs) return;
-        const percent = Math.round((crawledCount / totalDocs) * 100);
+
+        const percent = Math.min(
+          99,
+          Math.round((crawledCount / totalDocs) * 100)
+        );
+
         progressBar.style.width = percent + "%";
         progressBar.textContent = percent + "%";
       }
@@ -237,6 +242,7 @@
           // cập nhật progress
           crawledCount++;
           updateProgress();
+          await new Promise((r) => setTimeout(r, 0));
         }
 
         // Lấy folder con
@@ -253,19 +259,26 @@
         const parentId = folderSelect.value;
         if (!parentId) return alert("Chưa chọn folder cha");
 
-        const rootName = folderSelect.options[folderSelect.selectedIndex].text;
+        // 🔥 RESET UI STATE
+        crawledCount = 0;
+        totalDocs = 0;
+
+        progressBar.style.width = "0%";
+        progressBar.textContent = "0%";
 
         status.textContent = "⏳ Đang crawl dữ liệu...";
         resultTable.style.display = "none";
         resultTable.querySelector("tbody").innerHTML = "";
 
-        // reset progress
-        crawledCount = 0;
-        totalDocs = await countAllDocs(parentId);
-        initProgress();
+        const rootName = folderSelect.options[folderSelect.selectedIndex].text;
 
-        // crawl đệ quy
+        // (nếu bạn dùng đếm totalDocs)
+        totalDocs = await countAllDocs(parentId);
+
         await crawlFolderRecursive(parentId, rootName);
+
+        progressBar.style.width = "100%";
+        progressBar.textContent = "100%";
 
         status.textContent = "✅ Hoàn tất";
         resultTable.style.display = "table";
