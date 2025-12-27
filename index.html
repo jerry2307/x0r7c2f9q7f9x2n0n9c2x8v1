@@ -531,7 +531,7 @@
         resultTable.querySelector("tbody").appendChild(tr);
       }
 
-      // click 1 lần → copy text
+      // ✅ CLICK 1 LẦN → COPY TEXT
       document.addEventListener("click", function (e) {
         const box = e.target.closest(".copy-box");
         if (!box) return;
@@ -541,49 +541,16 @@
           copyText(text);
         }
       });
-      // click 1 lần → copy Folder
-      document.addEventListener("click", function (e) {
-        const cell = e.target.closest(".folder-cell");
-        if (!cell) return;
 
-        copyText(cell.dataset.copy);
-      });
-
-      // double click → copy slug Folder
+      // ✅ DOUBLE CLICK → COPY SLUG (NẾU CÓ)
       document.addEventListener("dblclick", function (e) {
-        const cell = e.target.closest(".folder-cell");
-        if (!cell) return;
+        const box = e.target.closest(".copy-box");
+        if (!box) return;
 
-        copyText(cell.dataset.slug);
-      });
+        const slug = box.dataset.slug;
+        if (!slug) return; // 🔥 KHÔNG CÓ SLUG → KHÔNG COPY
 
-      document.addEventListener("dblclick", function (e) {
-        const cell = e.target.closest(".copy-box");
-        if (!cell) return;
-
-        copyText(cell.dataset.slug);
-      });
-
-      // click 1 lần → copy TÊN BÀI SẠCH
-      document.addEventListener("click", function (e) {
-        const cell = e.target.closest(".doc-name");
-        if (!cell) return;
-
-        const text = cell.dataset.copy;
-        if (text) {
-          copyText(text);
-        }
-      });
-
-      // double click → copy slug
-      document.addEventListener("dblclick", function (e) {
-        const docCell = e.target.closest(".doc-name");
-        if (!docCell) return;
-
-        const slug = docCell.dataset.slug;
-        if (slug) {
-          copyText(slug);
-        }
+        copyText(slug);
       });
     </script>
   </body>
