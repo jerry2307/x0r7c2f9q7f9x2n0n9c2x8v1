@@ -112,6 +112,9 @@
           </div>
         </div>
       </div>
+      <div id="docCounter" class="muted" style="margin-top: 4px">
+        0 / 0 docs
+      </div>
 
       <table id="resultTable" style="display: none">
         <thead>
@@ -190,6 +193,8 @@
 
         progressBar.style.width = percent + "%";
         progressBar.textContent = percent + "%";
+
+        docCounter.textContent = crawledCount + " / " + totalDocs + " docs";
       }
 
       async function initGapi() {
@@ -232,25 +237,32 @@
         folderSelect.disabled = false;
       }
       async function crawlFolderRecursive(folderId, folderPath) {
-        // Lấy docs trong folder hiện tại
+        // 1️⃣ Lấy docs trong folder hiện tại
         const docs = await getDocsInFolder(folderId);
 
         for (const doc of docs) {
-          const data = await readDoc(doc.id);
-          appendRow(folderPath, doc.name, data.h1, data.italic);
+          try {
+            const data = await readDoc(doc.id);
 
-          // cập nhật progress
+            // ✅ append NGAY khi xong 1 doc
+            appendRow(folderPath, doc.name, data.h1, data.italic);
+          } catch (e) {
+            // lỗi doc thì vẫn tăng progress
+            appendRow(folderPath, doc.name, ["❌ Lỗi đọc doc"], []);
+          }
+
+          // 2️⃣ cập nhật progress
           crawledCount++;
           updateProgress();
+
+          // 3️⃣ nhường UI repaint
           await new Promise((r) => setTimeout(r, 0));
         }
 
-        // Lấy folder con
+        // 4️⃣ crawl folder con
         const subFolders = await getSubFolders(folderId);
-
         for (const sub of subFolders) {
-          const newPath = folderPath + " / " + sub.name;
-          await crawlFolderRecursive(sub.id, newPath);
+          await crawlFolderRecursive(sub.id, folderPath + " / " + sub.name);
         }
       }
 
@@ -261,10 +273,11 @@
 
         // 🔥 RESET UI STATE
         crawledCount = 0;
-        totalDocs = 0;
+        totalDocs = await countAllDocs(parentId);
 
         progressBar.style.width = "0%";
         progressBar.textContent = "0%";
+        docCounter.textContent = "0 / " + totalDocs + " docs";
 
         status.textContent = "⏳ Đang crawl dữ liệu...";
         resultTable.style.display = "none";
@@ -279,6 +292,7 @@
 
         progressBar.style.width = "100%";
         progressBar.textContent = "100%";
+        docCounter.textContent = crawledCount + " / " + totalDocs + " docs";
 
         status.textContent = "✅ Hoàn tất";
         resultTable.style.display = "table";
