@@ -209,9 +209,37 @@
         return count;
       }
       function copyText(text) {
-        navigator.clipboard.writeText(text).then(() => {
+        // fallback an toàn nhất
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        ta.style.top = "0";
+        document.body.appendChild(ta);
+
+        ta.focus();
+        ta.select();
+
+        try {
+          document.execCommand("copy");
           status.textContent = "✅ Đã copy nội dung";
-        });
+        } catch (err) {
+          status.textContent = "❌ Không copy được";
+        }
+
+        document.body.removeChild(ta);
+      }
+
+      function slugify(str) {
+        return str
+          .toLowerCase()
+          .normalize("NFD") // tách dấu
+          .replace(/[\u0300-\u036f]/g, "") // xoá dấu tiếng Việt
+          .replace(/đ/g, "d")
+          .replace(/[^a-z0-9\s-]/g, "") // xoá ký tự đặc biệt
+          .replace(/\s+/g, "-") // space → -
+          .replace(/-+/g, "-") // gộp --
+          .replace(/^-|-$/g, ""); // trim -
       }
 
       function initProgress() {
@@ -380,6 +408,8 @@
 
           const style = p.paragraphStyle?.namedStyleType;
 
+          let italicBuffer = ""; // 🔥 buffer nối italic trong 1 paragraph
+
           p.elements.forEach((el) => {
             const raw = el.textRun?.content;
             if (!raw) return;
@@ -387,12 +417,29 @@
             const text = raw.replace(/\n/g, "").trim();
             if (!text) return;
 
-            const ts = el.textRun?.textStyle;
-            if (!text) return;
+            const ts = el.textRun.textStyle || {};
 
-            if (style === "HEADING_1") h1.push(text);
-            if (ts?.italic) italic.push(text);
+            // H1 giữ nguyên
+            if (style === "HEADING_1") {
+              h1.push(text);
+            }
+
+            // 🔥 ITALIC (kể cả vừa bold vừa italic)
+            if (ts.italic) {
+              italicBuffer += text + " ";
+            } else {
+              // gặp đoạn không italic → flush buffer
+              if (italicBuffer.trim()) {
+                italic.push(italicBuffer.trim());
+                italicBuffer = "";
+              }
+            }
           });
+
+          // flush cuối paragraph
+          if (italicBuffer.trim()) {
+            italic.push(italicBuffer.trim());
+          }
         });
 
         return { h1, italic };
@@ -401,12 +448,16 @@
       function appendRow(folder, doc, h1, italic) {
         const tr = document.createElement("tr");
 
-        const h1Text = h1.join("\n");
-        const italicText = italic.join("\n");
-
         tr.innerHTML = `
     <td style="white-space:nowrap">${folder}</td>
-    <td>${doc}</td>
+
+    <td
+      ondblclick="copyText(slugify(${JSON.stringify(h1[0] || "")}))"
+      style="cursor:pointer"
+      title="Double click để copy slug SEO"
+    >
+      ${doc}
+    </td>
 
     <td>
       ${h1
