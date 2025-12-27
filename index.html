@@ -101,6 +101,20 @@
       .copy-box:hover::after {
         opacity: 1;
       }
+
+      /* trạng thái vừa double click */
+      .copy-box.copied-slug {
+        background: #e0f2fe;
+        border-color: #0284c7;
+        color: #0369a1;
+      }
+
+      /* tooltip đổi nội dung khi double click */
+      .copy-box.copied-slug::after {
+        content: "Đã copy slug SEO";
+        color: #0284c7;
+        opacity: 1;
+      }
     </style>
   </head>
 
@@ -541,15 +555,29 @@
         }
       });
 
-      // ✅ DOUBLE CLICK → COPY SLUG (NẾU CÓ)
+      // ✅ DOUBLE CLICK → COPY SLUG + ĐỔI MÀU
       document.addEventListener("dblclick", function (e) {
         const box = e.target.closest(".copy-box");
         if (!box) return;
 
         const slug = box.dataset.slug;
-        if (!slug) return; // 🔥 KHÔNG CÓ SLUG → KHÔNG COPY
+        if (!slug) return;
 
+        // copy slug
         copyText(slug);
+
+        // xoá trạng thái cũ
+        document
+          .querySelectorAll(".copy-box.copied-slug")
+          .forEach((el) => el.classList.remove("copied-slug"));
+
+        // thêm trạng thái mới
+        box.classList.add("copied-slug");
+
+        // tự xoá màu sau 1.2s (nhìn rất "tool nội bộ")
+        setTimeout(() => {
+          box.classList.remove("copied-slug");
+        }, 1200);
       });
     </script>
   </body>
