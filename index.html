@@ -300,6 +300,21 @@
 
         return count;
       }
+
+      async function countDocsToSync(folderId) {
+        let count = 0;
+
+        const docs = await getDocsInFolder(folderId, true); // syncOnly = true
+        count += docs.length;
+
+        const subFolders = await getSubFolders(folderId);
+        for (const sub of subFolders) {
+          count += await countDocsToSync(sub.id);
+        }
+
+        return count;
+      }
+
       function copyText(text) {
         // fallback an toàn nhất
         const ta = document.createElement("textarea");
@@ -443,14 +458,33 @@
           return;
         }
 
-        status.textContent = "🔄 Đang đồng bộ docs mới / đã chỉnh sửa...";
-        crawledCount = 0;
-        totalDocs = 0;
-
         const parentId = folderSelect.value;
+        if (!parentId) return alert("Chưa chọn folder");
+
+        status.textContent = "🔄 Đang quét docs mới / đã chỉnh sửa...";
+
+        crawledCount = 0;
+        totalDocs = await countDocsToSync(parentId);
+
+        // reset progress
+        progressBar.style.width = "0%";
+        progressBar.textContent = "0%";
+        docCounter.textContent = `0 / ${totalDocs} docs`;
+
+        if (totalDocs === 0) {
+          status.textContent = "✅ Không có docs mới hoặc cập nhật";
+          return;
+        }
+
+        status.textContent = "🔄 Đang đồng bộ docs mới / đã chỉnh sửa...";
+
         const rootName = folderSelect.options[folderSelect.selectedIndex].text;
 
         await syncFolderRecursive(parentId, rootName);
+
+        progressBar.style.width = "100%";
+        progressBar.textContent = "100%";
+        docCounter.textContent = `${crawledCount} / ${totalDocs} docs`;
 
         lastSyncTime = new Date().toISOString();
         localStorage.setItem("lastSyncTime", lastSyncTime);
@@ -459,10 +493,11 @@
       }
 
       async function syncFolderRecursive(folderId, folderPath) {
-        const docs = await getDocsInFolder(folderId, true); // 🔥 syncOnly = true
+        const docs = await getDocsInFolder(folderId, true); // syncOnly = true
 
         for (const doc of docs) {
           const data = await readDoc(doc.id);
+
           appendRow(
             folderPath,
             doc.id,
@@ -471,6 +506,13 @@
             data.italic,
             doc.modifiedTime
           );
+
+          // 🔥 CẬP NHẬT PROGRESS
+          crawledCount++;
+          updateProgress();
+
+          // nhường UI repaint
+          await new Promise((r) => setTimeout(r, 0));
         }
 
         const subs = await getSubFolders(folderId);
