@@ -351,22 +351,23 @@
         const parentId = folderSelect.value;
         if (!parentId) return alert("Chưa chọn folder cha");
 
-        // 🔥 RESET UI STATE
-        crawledCount = 0;
+        const tbody = resultTable.querySelector("tbody");
+
+        // 🔥 chỉ reset nếu chưa có dữ liệu
+        if (!tbody.children.length) {
+          crawledCount = 0;
+        }
+
         totalDocs = await countAllDocs(parentId);
 
         progressBar.style.width = "0%";
         progressBar.textContent = "0%";
-        docCounter.textContent = "0 / " + totalDocs + " docs";
+        docCounter.textContent = crawledCount + " / " + totalDocs + " docs";
 
         status.textContent = "⏳ Đang crawl dữ liệu...";
-        resultTable.style.display = "none";
-        resultTable.querySelector("tbody").innerHTML = "";
+        resultTable.style.display = "table";
 
         const rootName = folderSelect.options[folderSelect.selectedIndex].text;
-
-        // (nếu bạn dùng đếm totalDocs)
-        totalDocs = await countAllDocs(parentId);
 
         await crawlFolderRecursive(parentId, rootName);
 
@@ -375,7 +376,6 @@
         docCounter.textContent = crawledCount + " / " + totalDocs + " docs";
 
         status.textContent = "✅ Hoàn tất";
-        resultTable.style.display = "table";
       }
 
       /* ========= HELPERS ========= */
