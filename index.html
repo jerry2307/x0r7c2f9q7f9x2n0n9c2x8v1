@@ -2,7 +2,7 @@
 <html lang="vi">
   <head>
     <meta charset="UTF-8" />
-    <title>Google Docs – Crawl H1 & Italic</title>
+    <title>Crawl Google Docs (H1 & Italic)</title>
 
     <style>
       body {
@@ -11,7 +11,7 @@
         padding: 30px;
       }
       .container {
-        max-width: 1100px;
+        max-width: 1200px;
         margin: auto;
         background: #fff;
         padding: 20px;
@@ -47,11 +47,12 @@
         padding: 8px;
         border-radius: 6px;
         border: 1px solid #ddd;
+        min-width: 320px;
       }
       table {
         width: 100%;
         border-collapse: collapse;
-        margin-top: 14px;
+        margin-top: 16px;
       }
       th,
       td {
@@ -61,8 +62,7 @@
         vertical-align: top;
       }
       th {
-        background: #f0f4ff;
-        text-align: left;
+        background: #eef3ff;
       }
       code {
         background: #f6f6f6;
@@ -74,7 +74,7 @@
 
   <body>
     <div class="container">
-      <h2>📄 Crawl H1 & Italic từ Google Docs</h2>
+      <h2>📄 Crawl H1 & Italic (My Drive + Shared)</h2>
 
       <div class="row">
         <button class="primary" onclick="login()">🔐 Đăng nhập Google</button>
@@ -83,7 +83,7 @@
 
       <div class="row">
         <select id="folderSelect" disabled></select>
-        <button onclick="startCrawl()">🚀 Lấy H1 & Italic</button>
+        <button onclick="startCrawl()">🚀 Bắt đầu crawl</button>
       </div>
 
       <div id="status" class="muted">Chưa có thao tác</div>
@@ -105,10 +105,11 @@
     <script src="https://accounts.google.com/gsi/client"></script>
 
     <script>
-      /* ====== CONFIG ====== */
+      /* ========= CONFIG ========= */
       const CLIENT_ID =
         "860632481172-1nnq4dparmjdqrrehh407uv33ppvu2b7.apps.googleusercontent.com";
       const API_KEY = "AIzaSyC6aOoJLRvkAmOn8MVtsu6yPO-mzK3AR3U";
+
       const SCOPES =
         "https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/documents.readonly";
 
@@ -119,7 +120,7 @@
 
       let accessToken = null;
 
-      /* ====== AUTH ====== */
+      /* ========= AUTH ========= */
       function login() {
         const tc = google.accounts.oauth2.initTokenClient({
           client_id: CLIENT_ID,
@@ -128,8 +129,8 @@
             accessToken = t.access_token;
             await initGapi();
             gapi.client.setToken({ access_token: accessToken });
-            who.textContent = "✅ Đã kết nối Google";
-            await loadRootFolders();
+            who.textContent = "✅ Đã kết nối Google (My Drive + Shared)";
+            await loadAllRootFolders();
           },
         });
         tc.requestAccessToken();
@@ -147,15 +148,19 @@
         });
       }
 
-      /* ====== LOAD ROOT FOLDERS ====== */
-      async function loadRootFolders() {
+      /* ========= LOAD ROOT + SHARED ========= */
+      async function loadAllRootFolders() {
         const res = await gapi.client.drive.files.list({
-          q: "mimeType='application/vnd.google-apps.folder' and 'root' in parents and trashed=false",
-          fields: "files(id,name)",
+          q: "mimeType='application/vnd.google-apps.folder' and trashed=false",
+          fields: "files(id,name,owners)",
+          pageSize: 1000,
+          supportsAllDrives: true,
+          includeItemsFromAllDrives: true,
         });
 
         const select = folderSelect;
         select.innerHTML = "";
+
         res.result.files.forEach((f) => {
           const opt = document.createElement("option");
           opt.value = f.id;
@@ -166,14 +171,13 @@
         select.disabled = false;
       }
 
-      /* ====== CORE LOGIC ====== */
+      /* ========= MAIN ========= */
       async function startCrawl() {
         const parentId = folderSelect.value;
         if (!parentId) return alert("Chưa chọn folder cha");
 
-        status.textContent = "⏳ Đang xử lý...";
+        status.textContent = "⏳ Đang crawl dữ liệu...";
         resultTable.style.display = "none";
-        resultTable.admit = false;
         resultTable.querySelector("tbody").innerHTML = "";
 
         const subFolders = await getSubFolders(parentId);
@@ -191,11 +195,13 @@
         resultTable.style.display = "table";
       }
 
-      /* ====== HELPERS ====== */
+      /* ========= HELPERS ========= */
       async function getSubFolders(parentId) {
         const res = await gapi.client.drive.files.list({
           q: `'${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
           fields: "files(id,name)",
+          supportsAllDrives: true,
+          includeItemsFromAllDrives: true,
         });
         return res.result.files || [];
       }
@@ -204,6 +210,8 @@
         const res = await gapi.client.drive.files.list({
           q: `'${folderId}' in parents and mimeType='application/vnd.google-apps.document' and trashed=false`,
           fields: "files(id,name)",
+          supportsAllDrives: true,
+          includeItemsFromAllDrives: true,
         });
         return res.result.files || [];
       }
