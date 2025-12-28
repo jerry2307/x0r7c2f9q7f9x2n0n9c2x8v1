@@ -596,9 +596,8 @@
 
         const safeFolder = String(folder).replace(/"/g, "&quot;");
         const folderCopy = safeFolder
-          .split("/")
-          .pop()
-          .replace(/^\d+[\.\)\-]\s*/g, "")
+          .replace(/^.*\s\/\s/, "") // chỉ cắt "XOILAC / " (có space 2 bên)
+          .replace(/^\d+\s*[\.\)\-]\s*/g, "") // xoá số thứ tự: 75. | 75) | 75 -
           .trim();
 
         tr.innerHTML = `
