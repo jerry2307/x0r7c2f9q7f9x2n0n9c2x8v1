@@ -560,69 +560,35 @@
         return { h1, italic };
       }
 
-      function appendRow(folder, docId, docName, h1, italic, modifiedTime) {
+      function appendRow(folder, docId, docName, h1, italic) {
         const cleanTitle = cleanDocTitle(docName);
         const slug = slugify(cleanTitle);
 
-        let meta = docMetaMap.get(docId);
-        let tr;
-        let isNew = false;
-        let isUpdated = false;
+        const tr = document.createElement("tr");
 
-        // 🆕 DOC MỚI
-        if (!meta) {
-          tr = document.createElement("tr");
-          docMetaMap.set(docId, {
-            tr,
-            modifiedTime,
-          });
-          isNew = true;
-        } else {
-          tr = meta.tr;
-
-          // 🔄 DOC UPDATE
-          if (modifiedTime && meta.modifiedTime !== modifiedTime) {
-            isUpdated = true;
-            meta.modifiedTime = modifiedTime;
-          }
-        }
+        const safeFolder = String(folder).replace(/"/g, "&quot;");
 
         tr.innerHTML = `
-    <td
-      class="copy-box folder-cell"
-      const safeFolder = String(folder).replace(/"/g, "&quot;");
-      data-copy="${safeFolder}"
-      data-slug="${slugify(folder)}"
-      title="Click: copy folder | Double click: copy slug folder"
-      style="cursor:pointer; white-space:nowrap"
-    >
+    <td class="copy-box"
+        data-copy="${safeFolder}"
+        data-slug="${slugify(folder)}"
+        style="white-space:nowrap">
       ${folder}
     </td>
 
-    <td
-      class="copy-box doc-name"
-      data-copy="${cleanTitle}"
-      data-slug="${slug}"
-      title="Click: copy tiêu đề | Double click: copy slug SEO"
-      style="cursor:pointer"
-    >
+    <td class="copy-box"
+        data-copy="${cleanTitle}"
+        data-slug="${slug}">
       ${docName}
-      ${
-        isNew
-          ? `<span class="badge badge-new">NEW</span>`
-          : isUpdated
-          ? `<span class="badge badge-updated">UPDATED</span>`
-          : ""
-      }
     </td>
 
     <td>
       ${h1
         .map((x) => {
-          const safe = x.replace(/"/g, "&quot;");
-          return `<div class="copy-box" data-copy="${safe}" data-slug="${slugify(
-            x
-          )}">${safe}</div>`;
+          const safe = String(x).replace(/"/g, "&quot;");
+          return `<div class="copy-box"
+                     data-copy="${safe}"
+                     data-slug="${slugify(x)}">${safe}</div>`;
         })
         .join("")}
     </td>
@@ -630,31 +596,16 @@
     <td>
       ${italic
         .map((x) => {
-          const safe = x.replace(/"/g, "&quot;");
-          return `<div class="copy-box" data-copy="${safe}" data-slug="${slugify(
-            x
-          )}">${safe}</div>`;
+          const safe = String(x).replace(/"/g, "&quot;");
+          return `<div class="copy-box"
+                     data-copy="${safe}"
+                     data-slug="${slugify(x)}">${safe}</div>`;
         })
         .join("")}
     </td>
   `;
 
-        // append 1 lần duy nhất
-        if (!tr.parentNode) {
-          resultTable.querySelector("tbody").appendChild(tr);
-        }
-
-        // highlight
-        if (isNew) {
-          tr.classList.add("highlight-new");
-        } else if (isUpdated) {
-          tr.classList.add("highlight-updated");
-        }
-
-        // auto remove highlight
-        setTimeout(() => {
-          tr.classList.remove("highlight-new", "highlight-updated");
-        }, 3000);
+        resultTable.querySelector("tbody").appendChild(tr);
       }
 
       // ✅ CLICK 1 LẦN → COPY TEXT
