@@ -264,6 +264,9 @@
       let accessToken = null;
       let totalDocs = 0;
       let crawledCount = 0;
+      const status = document.getElementById("status");
+      const crawlBtn = document.getElementById("crawlBtn");
+      const folderSelect = document.getElementById("folderSelect");
 
       // map docId → <tr>
       const docRowMap = new Map();
@@ -441,6 +444,7 @@
       }
       /* ========= MAIN ========= */
       async function startCrawl() {
+        status.textContent = "⏳ Đang thao tác, vui lòng chờ...";
         const parentId = folderSelect.value;
         if (!parentId) return alert("Chưa chọn folder cha");
 
@@ -448,7 +452,6 @@
         crawlBtn.disabled = true;
         folderSelect.disabled = true;
         crawlBtn.textContent = "⏳ Đang crawl...";
-        status.textContent = "⏳ Đang thao tác, vui lòng chờ...";
 
         // 🔥 RESET UI STATE
         crawledCount = 0;
@@ -480,6 +483,7 @@
         crawlBtn.disabled = false;
         folderSelect.disabled = false;
         crawlBtn.textContent = "🚀 Bắt đầu crawl";
+        status.textContent = "✅ Hoàn tất crawl";
       }
 
       /* ========= HELPERS ========= */
