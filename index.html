@@ -339,15 +339,17 @@
       }
 
       function slugify(str) {
-        return str
+        return String(str || "")
           .toLowerCase()
-          .normalize("NFD") // tách dấu
-          .replace(/[\u0300-\u036f]/g, "") // xoá dấu tiếng Việt
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
           .replace(/đ/g, "d")
-          .replace(/[^a-z0-9\s-]/g, "") // xoá ký tự đặc biệt
-          .replace(/\s+/g, "-") // space → -
-          .replace(/-+/g, "-") // gộp --
-          .replace(/^-|-$/g, ""); // trim -
+          .replace(/[\/]+/g, " ") // ✅ A/B -> A B (để ra a-b)
+          .replace(/&/g, " and ") // (tuỳ chọn) A&B -> a-and-b cho đẹp
+          .replace(/[^a-z0-9\s-]/g, "") // xoá ký tự đặc biệt còn lại
+          .replace(/\s+/g, "-") // space -> -
+          .replace(/-+/g, "-")
+          .replace(/^-|-$/g, "");
       }
 
       function cleanDocTitle(raw) {
