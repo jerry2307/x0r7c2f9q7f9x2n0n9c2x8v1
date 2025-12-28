@@ -254,13 +254,9 @@
       const CLIENT_ID =
         "860632481172-1nnq4dparmjdqrrehh407uv33ppvu2b7.apps.googleusercontent.com";
       const API_KEY = "AIzaSyC6aOoJLRvkAmOn8MVtsu6yPO-mzK3AR3U";
-
-      const SCOPES =
-        "https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/documents.readonly";
-
+      const SCOPES = "https://www.googleapis.com/auth/drive.readonly";
       const DISCOVERY_DOCS = [
         "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest",
-        "https://www.googleapis.com/discovery/v1/apis/docs/v1/rest",
       ];
 
       let accessToken = null;
@@ -375,7 +371,7 @@
       }
 
       function updateProgress() {
-        const percent = Math.min(99, crawledCount * 5); // mỗi doc +5%
+        const percent = Math.min(99, crawledCount * 3);
         progressBar.style.width = percent + "%";
         progressBar.textContent = percent + "%";
         docCounter.textContent = `${crawledCount} docs`;
@@ -421,42 +417,29 @@
         folderSelect.disabled = false;
       }
       async function crawlFolderRecursive(folderId, folderPath) {
-        // 1️⃣ Lấy docs trong folder hiện tại
         const docs = await getDocsInFolder(folderId);
 
-        for (const doc of docs) {
-          try {
-            await new Promise((r) => setTimeout(r, 0));
-            const data = await readDoc(doc.id);
+        await processInBatches(docs, 4, async (doc) => {
+          const html = await exportDocHTML(doc.id);
+          const data = parseHTMLContent(html);
 
-            // ✅ 👉 THÊM Ở ĐÂY 👇
-            docHashStore[doc.id] = buildContentHash(data.h1, data.italic);
+          docHashStore[doc.id] = buildContentHash(data.h1, data.italic);
 
-            // ✅ append NGAY khi xong 1 doc
-            appendRow(
-              folderPath,
-              doc.id,
-              doc.name,
-              data.h1,
-              data.italic,
-              doc.modifiedTime
-            );
-          } catch (e) {
-            // lỗi doc thì vẫn tăng progress
-            appendRow(folderPath, doc.name, ["❌ Lỗi đọc doc"], []);
-          }
+          appendRow(
+            folderPath,
+            doc.id,
+            doc.name,
+            data.h1,
+            data.italic,
+            doc.modifiedTime
+          );
 
-          // 2️⃣ cập nhật progress
           crawledCount++;
           updateProgress();
+        });
 
-          // 3️⃣ nhường UI repaint
-          await new Promise((r) => setTimeout(r, 0));
-        }
-
-        // 4️⃣ crawl folder con
-        const subFolders = await getSubFolders(folderId);
-        for (const sub of subFolders) {
+        const subs = await getSubFolders(folderId);
+        for (const sub of subs) {
           await crawlFolderRecursive(sub.id, folderPath + " / " + sub.name);
         }
       }
@@ -494,21 +477,15 @@
       }
 
       async function syncFolderRecursive(folderId, folderPath) {
-        const docs = await getDocsInFolder(folderId); // ⚠️ KHÔNG dùng syncOnly nữa
+        const docs = await getDocsInFolder(folderId);
 
-        for (const doc of docs) {
-          await new Promise((r) => setTimeout(r, 0));
-          const data = await readDoc(doc.id);
+        await processInBatches(docs, 4, async (doc) => {
+          const html = await exportDocHTML(doc.id);
+          const data = parseHTMLContent(html);
 
           const newHash = buildContentHash(data.h1, data.italic);
-          const oldHash = docHashStore[doc.id];
+          if (docHashStore[doc.id] === newHash) return;
 
-          // ❌ KHÔNG thay đổi → bỏ qua
-          if (oldHash === newHash) {
-            continue;
-          }
-
-          // ✅ CÓ thay đổi → update
           appendRow(
             folderPath,
             doc.id,
@@ -518,14 +495,10 @@
             doc.modifiedTime
           );
 
-          // lưu hash mới
           docHashStore[doc.id] = newHash;
-
           crawledCount++;
           updateProgress();
-
-          await new Promise((r) => setTimeout(r, 0));
-        }
+        });
 
         const subs = await getSubFolders(folderId);
         for (const sub of subs) {
@@ -570,6 +543,40 @@
       }
 
       /* ========= HELPERS ========= */
+      async function exportDocHTML(docId) {
+        const res = await fetch(
+          `https://www.googleapis.com/drive/v3/files/${docId}/export?mimeType=text/html`,
+          {
+            headers: {
+              Authorization: "Bearer " + accessToken,
+            },
+          }
+        );
+
+        if (!res.ok) throw new Error("Export HTML failed");
+        return await res.text();
+      }
+      function parseHTMLContent(html) {
+        const dom = new DOMParser().parseFromString(html, "text/html");
+
+        const h1 = [...dom.querySelectorAll("h1")]
+          .map((e) => e.innerText.trim())
+          .filter(Boolean);
+
+        const italic = [...dom.querySelectorAll("em, i")]
+          .map((e) => e.innerText.trim())
+          .filter(Boolean);
+
+        return { h1, italic };
+      }
+      async function processInBatches(items, size, handler) {
+        for (let i = 0; i < items.length; i += size) {
+          const batch = items.slice(i, i + size);
+          await Promise.all(batch.map(handler));
+          await new Promise((r) => requestAnimationFrame(r)); // UI mượt
+        }
+      }
+
       async function getSubFolders(parentId) {
         let folders = [];
         let pageToken = null;
@@ -607,58 +614,6 @@
         });
 
         return res.result.files || [];
-      }
-
-      async function readDoc(docId) {
-        const res = await gapi.client.docs.documents.get({
-          documentId: docId,
-        });
-
-        const body = res.result.body.content;
-        const h1 = [];
-        const italic = [];
-
-        body.forEach((block) => {
-          const p = block.paragraph;
-          if (!p) return;
-
-          const style = p.paragraphStyle?.namedStyleType;
-
-          let italicBuffer = ""; // 🔥 buffer nối italic trong 1 paragraph
-
-          p.elements.forEach((el) => {
-            const raw = el.textRun?.content;
-            if (!raw) return;
-
-            const text = raw.replace(/\n/g, "").trim();
-            if (!text) return;
-
-            const ts = el.textRun.textStyle || {};
-
-            // H1 giữ nguyên
-            if (style === "HEADING_1") {
-              h1.push(text);
-            }
-
-            // 🔥 ITALIC (kể cả vừa bold vừa italic)
-            if (ts.italic) {
-              italicBuffer += text + " ";
-            } else {
-              // gặp đoạn không italic → flush buffer
-              if (italicBuffer.trim()) {
-                italic.push(italicBuffer.trim());
-                italicBuffer = "";
-              }
-            }
-          });
-
-          // flush cuối paragraph
-          if (italicBuffer.trim()) {
-            italic.push(italicBuffer.trim());
-          }
-        });
-
-        return { h1, italic };
       }
 
       function appendRow(folder, docId, docName, h1, italic, modifiedTime) {
