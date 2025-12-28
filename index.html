@@ -445,6 +445,11 @@
       /* ========= MAIN ========= */
       async function startCrawl() {
         status.textContent = "⏳ Đang thao tác, vui lòng chờ...";
+        progressBar.style.width = "0%";
+        progressBar.textContent = "0%";
+        docCounter.textContent = "0 / 0 docs";
+        resultTable.style.display = "none";
+        resultTable.querySelector("tbody").innerHTML = "";
         const parentId = folderSelect.value;
         if (!parentId) return alert("Chưa chọn folder cha");
 
