@@ -340,10 +340,10 @@
       }
 
       function cleanDocTitle(raw) {
-        return raw
-          .replace(/^🤝\s*/g, "") // bỏ icon 🤝
-          .replace(/.*?\s\/\s*/g, "") // bỏ folder cha "XOILAC /"
-          .replace(/^\d+[\.\)\-]\s*/g, "") // bỏ số thứ tự: 69. | 1) | 1-
+        return String(raw || "")
+          .replace(/^🤝\s*/g, "")
+          .replace(/.*?\s\/\s*/g, "")
+          .replace(/^\d+[\.\)\-]\s*/g, "")
           .trim();
       }
 
@@ -422,8 +422,7 @@
               doc.modifiedTime
             );
           } catch (e) {
-            // lỗi doc thì vẫn tăng progress
-            appendRow(folderPath, doc.name, ["❌ Lỗi đọc doc"], []);
+            appendRow(folderPath, doc.id, doc.name, ["❌ Lỗi đọc doc"], []);
           }
 
           // 2️⃣ cập nhật progress
