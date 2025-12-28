@@ -527,9 +527,10 @@
 
           p.elements.forEach((el) => {
             const raw = el.textRun?.content;
-            if (!raw) return;
+            if (typeof raw !== "string") return;
 
             const text = raw.replace(/\n/g, "").trim();
+
             if (!text) return;
 
             const ts = el.textRun.textStyle || {};
@@ -590,7 +591,8 @@
         tr.innerHTML = `
     <td
       class="copy-box folder-cell"
-      data-copy="${folder.replace(/"/g, "&quot;")}"
+      const safeFolder = String(folder).replace(/"/g, "&quot;");
+      data-copy="${safeFolder}"
       data-slug="${slugify(folder)}"
       title="Click: copy folder | Double click: copy slug folder"
       style="cursor:pointer; white-space:nowrap"
