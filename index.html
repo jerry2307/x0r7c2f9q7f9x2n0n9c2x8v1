@@ -165,6 +165,14 @@
         background: #fb923c;
         color: #000;
       }
+
+      tbody tr:nth-child(odd) {
+        background: #ffffff;
+      }
+
+      tbody tr:nth-child(even) {
+        background: #f8fafc;
+      }
     </style>
   </head>
 
@@ -587,11 +595,16 @@
         const tr = document.createElement("tr");
 
         const safeFolder = String(folder).replace(/"/g, "&quot;");
+        const folderCopy = safeFolder
+          .split("/")
+          .pop()
+          .replace(/^\d+[\.\)\-]\s*/g, "")
+          .trim();
 
         tr.innerHTML = `
     <td class="copy-box"
-        data-copy="${safeFolder}"
-        data-slug="${slugify(folder)}"
+        data-copy="${folderCopy}"
+        data-slug="${slugify(folderCopy)}"
         style="white-space:nowrap">
       ${folder}
     </td>
