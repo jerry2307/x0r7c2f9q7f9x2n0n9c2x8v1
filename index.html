@@ -181,8 +181,6 @@
         <select id="folderSelect" disabled></select>
         <button onclick="startCrawl()">🚀 Bắt đầu crawl</button>
       </div>
-      <button onclick="syncUpdates()">🔄 Đồng bộ cập nhật</button>
-
       <div id="status" class="muted">Chưa có thao tác</div>
       <div style="margin-top: 8px">
         <div
@@ -266,12 +264,6 @@
       let accessToken = null;
       let totalDocs = 0;
       let crawledCount = 0;
-      let lastSyncTime = localStorage.getItem("lastSyncTime") || null;
-      const docMetaMap = new Map();
-      // lưu hash theo docId
-      let docHashStore = JSON.parse(
-        localStorage.getItem("docHashStore") || "{}"
-      );
 
       // map docId → <tr>
       const docRowMap = new Map();
@@ -308,20 +300,6 @@
         const subFolders = await getSubFolders(folderId);
         for (const sub of subFolders) {
           count += await countAllDocs(sub.id);
-        }
-
-        return count;
-      }
-
-      async function countDocsToSync(folderId) {
-        let count = 0;
-
-        const docs = await getDocsInFolder(folderId, true); // syncOnly = true
-        count += docs.length;
-
-        const subFolders = await getSubFolders(folderId);
-        for (const sub of subFolders) {
-          count += await countDocsToSync(sub.id);
         }
 
         return count;
@@ -434,10 +412,6 @@
         for (const doc of docs) {
           try {
             const data = await readDoc(doc.id);
-
-            // ✅ 👉 THÊM Ở ĐÂY 👇
-            docHashStore[doc.id] = buildContentHash(data.h1, data.italic);
-
             // ✅ append NGAY khi xong 1 doc
             appendRow(
               folderPath,
@@ -466,75 +440,6 @@
           await crawlFolderRecursive(sub.id, folderPath + " / " + sub.name);
         }
       }
-
-      async function syncUpdates() {
-        const parentId = folderSelect.value;
-        if (!parentId) return alert("Chưa chọn folder");
-
-        crawledCount = 0;
-        totalDocs = 0;
-
-        status.textContent = "🔄 Đang kiểm tra thay đổi nội dung...";
-
-        progressBar.style.width = "0%";
-        progressBar.textContent = "0%";
-        docCounter.textContent = "0 / ? docs";
-
-        const rootName = folderSelect.options[folderSelect.selectedIndex].text;
-
-        await syncFolderRecursive(parentId, rootName);
-
-        // lưu hash sau khi sync
-        localStorage.setItem("docHashStore", JSON.stringify(docHashStore));
-
-        progressBar.style.width = "100%";
-        progressBar.textContent = "100%";
-        docCounter.textContent = `${crawledCount} docs cập nhật`;
-
-        status.textContent =
-          crawledCount === 0
-            ? "✅ Không có doc thay đổi"
-            : `✅ Đã cập nhật ${crawledCount} doc`;
-      }
-
-      async function syncFolderRecursive(folderId, folderPath) {
-        const docs = await getDocsInFolder(folderId); // ⚠️ KHÔNG dùng syncOnly nữa
-
-        for (const doc of docs) {
-          const data = await readDoc(doc.id);
-          const newHash = buildContentHash(data.h1, data.italic);
-          const oldHash = docHashStore[doc.id];
-
-          // ❌ KHÔNG thay đổi → bỏ qua
-          if (oldHash === newHash) {
-            continue;
-          }
-
-          // ✅ CÓ thay đổi → update
-          appendRow(
-            folderPath,
-            doc.id,
-            doc.name,
-            data.h1,
-            data.italic,
-            doc.modifiedTime
-          );
-
-          // lưu hash mới
-          docHashStore[doc.id] = newHash;
-
-          crawledCount++;
-          updateProgress();
-
-          await new Promise((r) => setTimeout(r, 0));
-        }
-
-        const subs = await getSubFolders(folderId);
-        for (const sub of subs) {
-          await syncFolderRecursive(sub.id, folderPath + " / " + sub.name);
-        }
-      }
-
       /* ========= MAIN ========= */
       async function startCrawl() {
         const parentId = folderSelect.value;
@@ -542,6 +447,7 @@
 
         // 🔥 RESET UI STATE
         crawledCount = 0;
+        docMetaMap.clear();
         totalDocs = await countAllDocs(parentId);
 
         progressBar.style.width = "0%";
@@ -565,10 +471,6 @@
 
         status.textContent = "✅ Hoàn tất";
         resultTable.style.display = "table";
-        lastSyncTime = new Date().toISOString();
-        localStorage.setItem("lastSyncTime", lastSyncTime);
-        // lưu hash sau crawl full
-        localStorage.setItem("docHashStore", JSON.stringify(docHashStore));
       }
 
       /* ========= HELPERS ========= */
@@ -592,14 +494,10 @@
         return folders;
       }
 
-      async function getDocsInFolder(folderId, syncOnly = false) {
+      async function getDocsInFolder(folderId) {
         let q = `'${folderId}' in parents 
     and mimeType='application/vnd.google-apps.document' 
     and trashed=false`;
-
-        if (syncOnly && lastSyncTime) {
-          q += ` and modifiedTime > '${lastSyncTime}'`;
-        }
 
         const res = await gapi.client.drive.files.list({
           q,
