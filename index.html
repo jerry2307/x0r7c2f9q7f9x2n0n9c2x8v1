@@ -179,7 +179,7 @@
 
       <div class="row">
         <select id="folderSelect" disabled></select>
-        <button onclick="startCrawl()">🚀 Bắt đầu crawl</button>
+        <button id="crawlBtn" onclick="startCrawl()">🚀 Bắt đầu crawl</button>
       </div>
       <div id="status" class="muted">Chưa có thao tác</div>
       <div style="margin-top: 8px">
@@ -444,6 +444,12 @@
         const parentId = folderSelect.value;
         if (!parentId) return alert("Chưa chọn folder cha");
 
+        // 🔒 DISABLE UI
+        crawlBtn.disabled = true;
+        folderSelect.disabled = true;
+        crawlBtn.textContent = "⏳ Đang crawl...";
+        status.textContent = "⏳ Đang thao tác, vui lòng chờ...";
+
         // 🔥 RESET UI STATE
         crawledCount = 0;
         totalDocs = await countAllDocs(parentId);
@@ -469,6 +475,11 @@
 
         status.textContent = "✅ Hoàn tất";
         resultTable.style.display = "table";
+
+        // 🔓 ENABLE UI
+        crawlBtn.disabled = false;
+        folderSelect.disabled = false;
+        crawlBtn.textContent = "🚀 Bắt đầu crawl";
       }
 
       /* ========= HELPERS ========= */
