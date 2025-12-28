@@ -375,17 +375,10 @@
       }
 
       function updateProgress() {
-        if (!totalDocs) return;
-
-        const percent = Math.min(
-          99,
-          Math.round((crawledCount / totalDocs) * 100)
-        );
-
+        const percent = Math.min(99, crawledCount * 5); // mỗi doc +5%
         progressBar.style.width = percent + "%";
         progressBar.textContent = percent + "%";
-
-        docCounter.textContent = crawledCount + " / " + totalDocs + " docs";
+        docCounter.textContent = `${crawledCount} docs`;
       }
 
       async function initGapi() {
@@ -433,6 +426,7 @@
 
         for (const doc of docs) {
           try {
+            await new Promise((r) => setTimeout(r, 0));
             const data = await readDoc(doc.id);
 
             // ✅ 👉 THÊM Ở ĐÂY 👇
@@ -478,13 +472,15 @@
 
         progressBar.style.width = "0%";
         progressBar.textContent = "0%";
-        docCounter.textContent = "0 / ? docs";
+        docCounter.textContent = "0 docs";
+
+        // 🔥 yield UI ngay
+        await new Promise((r) => requestAnimationFrame(r));
 
         const rootName = folderSelect.options[folderSelect.selectedIndex].text;
 
         await syncFolderRecursive(parentId, rootName);
 
-        // lưu hash sau khi sync
         localStorage.setItem("docHashStore", JSON.stringify(docHashStore));
 
         progressBar.style.width = "100%";
@@ -501,7 +497,9 @@
         const docs = await getDocsInFolder(folderId); // ⚠️ KHÔNG dùng syncOnly nữa
 
         for (const doc of docs) {
+          await new Promise((r) => setTimeout(r, 0));
           const data = await readDoc(doc.id);
+
           const newHash = buildContentHash(data.h1, data.italic);
           const oldHash = docHashStore[doc.id];
 
